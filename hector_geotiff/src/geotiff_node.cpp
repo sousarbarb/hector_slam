@@ -127,17 +127,19 @@ public:
     bool received_map = false;
     boost::shared_ptr<const nav_msgs::OccupancyGrid> map;
     nav_msgs::GetMap srv_map;
-    if(use_map_topic_){
-        map = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("map",ros::Duration(4));
-        if(map != nullptr) received_map = true;
-    }else{
-        received_map = map_service_client_.call(srv_map);
-        map.reset(&srv_map.response.map);
+    if (use_map_topic_)
+    {
+      map = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("map",ros::Duration(4));
+      if (map != nullptr) received_map = true;
+    }
+    else
+    {
+      received_map = map_service_client_.call(srv_map);
+      map = boost::make_shared<nav_msgs::OccupancyGrid>(srv_map.response.map);
     }
     if (received_map)
     {
       ROS_INFO("GeotiffNode: Map service called successfully");
-
 
       std::string map_file_name = p_map_file_base_name_;
       std::string competition_name;
@@ -265,7 +267,7 @@ public:
 
   void sysCmdCallback(const std_msgs::String& sys_cmd)
   {
-    if ( !(sys_cmd.data == "savegeotiff")){
+    if (sys_cmd.data != "savegeotiff"){
       return;
     }
 
