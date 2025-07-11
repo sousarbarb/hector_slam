@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
       boost::program_options::value<std::string>(&param.initial_pose_topic)
           ->default_value("/initial_pose")
           ->value_name("TOPIC"),
-      "Topic name for the robot's odometry data (used for initialization)")(
+      "Topic name for the robot's initial pose")(
       "scantopic",
       boost::program_options::value<std::string>(&param.scan_topic)
           ->default_value("/scan")
