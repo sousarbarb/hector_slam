@@ -1,15 +1,22 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(hector_mapping)
 
-find_package(catkin REQUIRED COMPONENTS 
-  roscpp
-  nav_msgs
-  visualization_msgs
-  tf
-  message_filters
-  laser_geometry
-  message_generation
-  std_srvs)
+find_package(catkin REQUIRED
+  COMPONENTS
+    roscpp
+    geometry_msgs
+    laser_geometry
+    message_filters
+    message_generation
+    nav_msgs
+    rosbag_storage
+    std_msgs
+    std_srvs
+    tf
+    tf2
+    tf2_ros
+    visualization_msgs
+)
 
 find_package(Boost REQUIRED COMPONENTS thread)
 
@@ -43,7 +50,20 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES hector_mapping
-  CATKIN_DEPENDS roscpp nav_msgs visualization_msgs tf message_filters laser_geometry message_runtime
+  CATKIN_DEPENDS
+    roscpp
+    geometry_msgs
+    laser_geometry
+    message_filters
+    message_generation
+    nav_msgs
+    rosbag_storage
+    std_msgs
+    std_srvs
+    tf
+    tf2
+    tf2_ros
+    visualization_msgs
   DEPENDS EIGEN3
 )
 
@@ -75,6 +95,27 @@ target_link_libraries(hector_mapping
   ${Boost_LIBRARIES}
 )
 
+
+add_executable(hector_mapping_offline
+  src/HectorDebugInfoProvider.h
+  src/HectorDrawings.h
+  src/HectorMappingROS1API.cpp
+  src/HectorMappingROS1Offline.cpp
+  src/main_offline.cpp
+  src/PoseInfoContainer.cpp
+  src/PoseInfoContainer.h
+)
+
+add_dependencies(hector_mapping_offline
+  hector_mapping_generate_messages_cpp
+)
+
+target_compile_options(hector_mapping_offline PRIVATE "-std=c++17")
+target_link_libraries(hector_mapping_offline
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+)
+
 #############
 ## Install ##
 #############
@@ -83,6 +124,12 @@ target_link_libraries(hector_mapping
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
 install(TARGETS hector_mapping
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(TARGETS hector_mapping_offline
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

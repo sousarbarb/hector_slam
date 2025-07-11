@@ -1,0 +1,55 @@
+<launch>
+
+  <!-- <param name="use_sim_time" value="true" /> -->
+
+  <node pkg="hector_mapping" type="hector_mapping_offline" name="hector_mapping_offline"
+    output="screen"
+    args="-b /home/sousarbarb97/bag_files/paper_slam_2d/cappero_laser_odom_diag_2020-05-06-16-26-03_fixed_v2.bag
+          --log hector_slam.tum">
+
+    <param name="map_frame" value="map" />
+    <param name="base_frame" value="base_link" />
+    <param name="odom_frame" value="odom" />
+
+    <param name="laser_min_dist" value="0.06" />
+    <param name="laser_max_dist" value="8.0" />
+    <param name="laser_z_min_value" value="-1.0" />
+    <param name="laser_z_max_value" value="1.0" />
+
+    <param name="map_resolution" value="0.050" />
+    <param name="map_size" value="5000" />
+    <param name="map_start_x" value="0.5" />
+    <param name="map_start_y" value="0.5" />
+    <param name="map_multi_res_levels" value="2" />
+
+    <param name="update_factor_free" value="0.4" />
+    <param name="update_factor_occupied" value="0.9" />
+
+    <param name="map_update_distance_thresh" value="0.25" />
+    <param name="map_update_angle_thresh" value="0.125" />
+
+    <param name="scan_topic" value="scan" />
+    <param name="sys_msg_topic" value="syscommand" />
+    <param name="pose_update_topic" value="pose" />
+
+    <param name="use_tf_scan_transformation" value="true" />
+    <param name="use_tf_pose_start_estimate" value="false" />
+    <param name="map_with_known_poses" value="false" />
+
+    <param name="output_timing" value="false" />
+
+    <param name="map_pub_period" value="2.0" />
+
+    <param name="pub_drawings" value="false" />
+    <param name="pub_debug_output" value="false" />
+    <param name="pub_map_odom_transform" value="false" />
+    <param name="pub_odometry" value="false" />
+    <param name="advertise_map_service" value="false" />
+    <param name="scan_subscriber_queue_size" value="50" />
+
+    <param name="pub_map_scanmatch_transform" value="false" />
+    <param name="tf_map_scanmatch_transform_frame_name" value="scanmatcher" />
+
+  </node>
+
+</launch>

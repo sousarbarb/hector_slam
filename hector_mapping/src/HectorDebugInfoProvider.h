@@ -29,6 +29,8 @@
 #ifndef HECTOR_DEBUG_INFO_PROVIDER_H__
 #define HECTOR_DEBUG_INFO_PROVIDER_H__
 
+#include <Eigen/Eigenvalues>
+
 #include "util/HectorDebugInfoInterface.h"
 #include "util/UtilFunctions.h"
 
