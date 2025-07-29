@@ -1,10 +1,14 @@
 #include "HectorMappingROS1Offline.h"
 
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
 #include <chrono>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 // ROS
 #include <nav_msgs/MapMetaData.h>
@@ -161,16 +165,23 @@ HectorMappingROS1Offline::~HectorMappingROS1Offline()
 
   for (const std::shared_ptr<rosbag::Bag>& bag : bags_)
   {
-    ROS_INFO("[%s] Closing %s", ros::this_node::getName().c_str(),
-             bag->getFileName().c_str());
+    if (bag->isOpen())
+    {
+      ROS_INFO("[%s] Closing %s", ros::this_node::getName().c_str(),
+               bag->getFileName().c_str());
 
-    bag->close();
+      bag->close();
+    }
   }
+
+  restoreTerminal();
 }
 
 void HectorMappingROS1Offline::run()
 {
   std::cout << std::endl;
+
+  setupTerminal();
 
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -210,24 +221,29 @@ void HectorMappingROS1Offline::run()
       full_initial_time + ros::Duration(param_offline_.time_start);
   ros::Time finish_time = ros::TIME_MAX;
 
+  ros::Duration bag_length;
+
   ROS_INFO("[%s] Start  time (s): %.9lf", ros::this_node::getName().c_str(),
            initial_time.toSec());
 
   if (param_offline_.has_duration)
   {
     finish_time = initial_time + ros::Duration(param_offline_.time_duration);
+    bag_length = finish_time - initial_time;
 
     ROS_INFO("[%s] Finish time (s): %.9lf", ros::this_node::getName().c_str(),
              finish_time.toSec());
     ROS_INFO("[%s] Total  time (s): %.9lf\n", ros::this_node::getName().c_str(),
-             ros::Duration(finish_time - initial_time).toSec());
+             bag_length.toSec());
   }
   else
   {
+    bag_length = full_view.getEndTime() - initial_time;
+
     ROS_INFO("[%s] Finish time (s): %.9lf (end of the bags)",
              ros::this_node::getName().c_str(), full_view.getEndTime().toSec());
     ROS_INFO("[%s] Total  time (s): %.9lf\n", ros::this_node::getName().c_str(),
-             ros::Duration(full_view.getEndTime() - initial_time).toSec());
+             bag_length.toSec());
   }
 
   rosbag::View view;
@@ -237,8 +253,42 @@ void HectorMappingROS1Offline::run()
     view.addQuery(*bag, initial_time, finish_time);
   }
 
+  std::cout << "\033[31m"
+            << "Press SPACE to pause/resume processing, 'q' to quit..."
+            << "\033[0m" << std::endl;
+
   for (rosbag::MessageInstance const& msg : view)
   {
+    while (true)
+    {
+      char key = readTerminalKey();
+
+      if (key == ' ')
+      {
+        paused_ = !paused_;
+
+        std::cout << std::endl << std::flush;
+
+        printTime(msg.getTime(), msg.getTime() - initial_time, bag_length);
+
+        std::cout << "\033[31m" << (paused_ ? "[PAUSED ]" : "[RESUMED]")
+                  << " Press SPACE to pause/resume processing, 'q' to quit..."
+                  << "\033[0m" << std::endl;
+      }
+      else if (key == 'q' || key == 'Q')
+      {
+        std::cout << "Processing stopped by user" << std::endl;
+        goto exit_loop;
+      }
+
+      if (!paused_)
+      {
+        break;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
     if (msg.instantiate<sensor_msgs::LaserScan>() != nullptr)
     {
       if (msg.getTopic() != param_offline_.scan_topic)
@@ -279,7 +329,12 @@ void HectorMappingROS1Offline::run()
     ros::spinOnce();
   }
 
+// Exit loop if 'q' was pressed while processing the ROS bags
+exit_loop:
+
   auto end = std::chrono::high_resolution_clock::now();
+
+  std::cout << std::endl << std::flush;
 
   ROS_INFO(
       "\n\n"
@@ -291,6 +346,24 @@ void HectorMappingROS1Offline::run()
       std::chrono::duration_cast<std::chrono::microseconds>(end - start)
               .count() *
           1e-6);
+
+  if (param_offline_.enable_log && log_file_pose_.is_open())
+  {
+    log_file_pose_.close();
+  }
+
+  for (const std::shared_ptr<rosbag::Bag>& bag : bags_)
+  {
+    if (bag->isOpen())
+    {
+      ROS_INFO("[%s] Closing %s", ros::this_node::getName().c_str(),
+               bag->getFileName().c_str());
+
+      bag->close();
+    }
+  }
+
+  restoreTerminal();
 
   ros::spin();
 }
@@ -458,4 +531,69 @@ void HectorMappingROS1Offline::validateAndCreatePath(
         "processing path (" +
         file_path + "): " + e.what());
   }
+}
+
+void HectorMappingROS1Offline::setupTerminal()
+{
+  if (terminal_modified_)
+  {
+    return;
+  }
+
+  // Save original terminal settings
+  const int fd = fileno(stdin);
+  tcgetattr(fd, &orig_flags_);
+
+  // Set terminal to raw mode for immediate key detection
+  struct termios raw = orig_flags_;
+  raw.c_lflag &= ~(ICANON);  // noncanonical mode (input available immediately)
+  raw.c_cc[VMIN] = 0;        // polling read mode
+  raw.c_cc[VTIME] = 0;       // block if waiting for char
+
+  tcsetattr(fd, TCSANOW, &raw);  // change occur immediately
+
+  // Make stdin non-blocking
+  fcntl(fd, F_SETFL, O_NONBLOCK);
+
+  // Hide cursor and clear screen
+  std::cout << "\033[2J"  // clear entire screen
+            << "\033[H"   // move cursor to home position
+            << std::flush;
+
+  terminal_modified_ = true;
+}
+
+void HectorMappingROS1Offline::restoreTerminal()
+{
+  if (!terminal_modified_)
+  {
+    return;
+  }
+
+  const int fd = fileno(stdin);
+  tcsetattr(fd, TCSANOW, &orig_flags_);
+
+  terminal_modified_ = false;
+}
+
+void HectorMappingROS1Offline::printTime(const ros::Time& t,
+                                         const ros::Duration& duration,
+                                         const ros::Duration& bag_length) const
+{
+  std::cout << std::fixed << std::setprecision(6) << "["
+            << (paused_ ? "PAUSED " : "RUNNING") << "] Bag Time: " << t.toSec()
+            << "   Duration: " << duration.toSec() << " / "
+            << bag_length.toSec() << std::endl;
+}
+
+char HectorMappingROS1Offline::readTerminalKey() const
+{
+  char c;
+
+  if (read(STDIN_FILENO, &c, 1) < 0)
+  {
+    return '\0';
+  }
+
+  return c;
 }

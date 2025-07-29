@@ -6,6 +6,7 @@
     output="screen"
     args="-b /home/sousarbarb97/bag_files/paper_slam_2d/cappero_laser_odom_diag_2020-05-06-16-26-03_fixed_v2.bag
           --log hector_slam.tum">
+    <!-- launch-prefix="xterm -e gdb -/-args"/> -->
 
     <param name="map_frame" value="map" />
     <param name="base_frame" value="base_link" />

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -58,6 +62,13 @@ class HectorMappingROS1Offline : HectorMappingROS1API
   void setServiceGetMapData(nav_msgs::GetMap::Response& map_,
                             const hectorslam::GridMap& gridMap);
 
+  virtual void setupTerminal();
+  virtual void restoreTerminal();
+  virtual void printTime(const ros::Time& t, const ros::Duration& duration,
+                         const ros::Duration& bag_length) const;
+
+  virtual char readTerminalKey() const;
+
  private:
 
   HectorMappingROS1Offline() = delete;
@@ -67,6 +78,12 @@ class HectorMappingROS1Offline : HectorMappingROS1API
  protected:
 
   ParamOffline param_offline_;
+
+  bool paused_ = false;
+
+  bool terminal_modified_ = false;
+
+  termios orig_flags_;
 
   std::unique_ptr<
       tf2_ros::MessageFilter<geometry_msgs::PoseWithCovarianceStamped>>
