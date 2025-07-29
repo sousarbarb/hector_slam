@@ -8,7 +8,9 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <thread>
+#include <vector>
 
 // ROS
 #include <nav_msgs/MapMetaData.h>
@@ -209,11 +211,15 @@ void HectorMappingROS1Offline::run()
     }
   }
 
+  std::vector<std::string> tf_static_topics({"/tf_static"});
+
   rosbag::View full_view;
+  rosbag::View tf_static_view;
 
   for (const std::shared_ptr<rosbag::Bag>& bag : bags_)
   {
     full_view.addQuery(*bag);
+    tf_static_view.addQuery(*bag, rosbag::TopicQuery(tf_static_topics));
   }
 
   const ros::Time full_initial_time = full_view.getBeginTime();
@@ -244,6 +250,33 @@ void HectorMappingROS1Offline::run()
              ros::this_node::getName().c_str(), full_view.getEndTime().toSec());
     ROS_INFO("[%s] Total  time (s): %.9lf\n", ros::this_node::getName().c_str(),
              bag_length.toSec());
+  }
+
+  ROS_INFO("[%s] Loading TF static transforms...",
+           ros::this_node::getName().c_str());
+
+  for (rosbag::MessageInstance const& msg : tf_static_view)
+  {
+    if (msg.instantiate<tf2_msgs::TFMessage>() != nullptr)
+    {
+      tf2_msgs::TFMessagePtr tf_msg = msg.instantiate<tf2_msgs::TFMessage>();
+
+      bool is_static = (msg.getTopic().compare("/tf_static") == 0);
+
+      if (!is_static)
+      {
+        continue;
+      }
+
+      for (const geometry_msgs::TransformStamped& transf : tf_msg->transforms)
+      {
+        tf2_buffer_.setTransform(transf, ros::this_node::getName(), is_static);
+
+        ROS_INFO("[%s] TF static transform: %s --> %s",
+                 ros::this_node::getName().c_str(),
+                 transf.header.frame_id.c_str(), transf.child_frame_id.c_str());
+      }
+    }
   }
 
   rosbag::View view;

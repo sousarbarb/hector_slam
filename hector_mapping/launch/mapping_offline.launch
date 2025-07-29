@@ -1,10 +1,15 @@
 <launch>
 
+  <arg name="scan_topic" default="/scan" />
+  <arg name="start" default="0" />
+
   <!-- <param name="use_sim_time" value="true" /> -->
 
   <node pkg="hector_mapping" type="hector_mapping_offline" name="hector_mapping_offline"
     output="screen"
     args="-b /home/sousarbarb97/bag_files/paper_slam_2d/cappero_laser_odom_diag_2020-05-06-16-26-03_fixed_v2.bag
+          --scantopic $(arg scan_topic)
+          --start $(arg start)
           --log hector_slam.tum">
     <!-- launch-prefix="xterm -e gdb -/-args"/> -->
 
