@@ -367,6 +367,8 @@ exit_loop:
 
   auto end = std::chrono::high_resolution_clock::now();
 
+  restoreTerminal();
+
   std::cout << std::endl << std::flush;
 
   ROS_INFO(
@@ -586,7 +588,7 @@ void HectorMappingROS1Offline::setupTerminal()
   tcsetattr(fd, TCSANOW, &raw);  // change occur immediately
 
   // Make stdin non-blocking
-  fcntl(fd, F_SETFL, O_NONBLOCK);
+  // fcntl(fd, F_SETFL, O_NONBLOCK);
 
   // Hide cursor and clear screen
   std::cout << "\033[2J"  // clear entire screen
@@ -604,6 +606,7 @@ void HectorMappingROS1Offline::restoreTerminal()
   }
 
   const int fd = fileno(stdin);
+  m_orig_flags_.c_lflag |= (ICANON);  // always restore canonical mode
   tcsetattr(fd, TCSANOW, &orig_flags_);
 
   terminal_modified_ = false;
@@ -628,5 +631,25 @@ char HectorMappingROS1Offline::readTerminalKey() const
     return '\0';
   }
 
-  return c;
+  // Filter out control characters and escape sequences
+  if (c == '\033')
+  {  // ESC character - start of escape sequence
+    // Read and discard the rest of the escape sequence
+    char temp;
+    while (read(STDIN_FILENO, &temp, 1) > 0)
+    {
+      if (temp >= 'A' && temp <= 'Z') break;  // End of most escape sequences
+      if (temp >= 'a' && temp <= 'z') break;
+      if (temp == '~') break;  // End of some sequences
+    }
+    return '\0';
+  }
+
+  // Only return printable characters and specific control chars you want
+  if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t' || c == 27)
+  {
+    return c;
+  }
+
+  return '\0';  // Ignore other characters
 }
